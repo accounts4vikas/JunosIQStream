@@ -64,4 +64,4 @@ stream.sparkstream.batch_interval: ${YOUR_SPARK_STREAMING_BATCH_INTERVAL_IN_SECS
 
 ```
  
-Note: You can use KafkaJsonProducer to create a stream of Test Json messages for testing purpose.
+Note: You can use KafkaJsonProducer to create a stream of test Json messages for testing purpose.
