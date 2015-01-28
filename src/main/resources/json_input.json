@@ -1,0 +1,44 @@
+{
+  "header": {
+    "slot": 18,
+    "sensor_id": 18,
+    "pfe": 18,
+    "name": 18,
+    "length": 18,
+    "version": 18,
+    "fid": 18
+  },
+  "value": {
+    "heap_info": [
+      {
+        "allocated": 720152008,
+        "utilization": 38,
+        "name": "Kernel",
+        "size": 1890695748
+      },
+      {
+        "allocated": 9546944,
+        "utilization": 14,
+        "name": "LAN buffer",
+        "size": 67108860
+      },
+      {
+        "allocated": 0,
+        "utilization": 0,
+        "name": "Blob",
+        "size": 52428784
+      },
+      {
+        "allocated": 0,
+        "utilization": 0,
+        "name": "ISSU scratch",
+        "size": 62914556
+      }
+    ]
+  },
+  "metadata": {
+    "utctime": "2015-01-23T02:06:17.801516",
+    "ms": 1421978777802,
+    "localtime": "2015-01-22T18:06:17.801516"
+  }
+}
