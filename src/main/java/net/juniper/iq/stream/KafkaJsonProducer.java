@@ -90,7 +90,7 @@ public class KafkaJsonProducer {
 
 	private Producer<String, String> getKafkaProducer() {
 		java.util.Properties props = new java.util.Properties();
-		props.put("metadata.broker.list", "localhost:9092");
+		props.put("metadata.broker.list", "10.10.0.182:9092");
 		props.put("serializer.class", "kafka.serializer.StringEncoder");
 		// props.put("partitioner.class", "example.producer.SimplePartitioner");
 		// props.put("request.required.acks", "1");
@@ -108,7 +108,7 @@ public class KafkaJsonProducer {
 	}
 
 	public static void main(String[] args) throws InterruptedException {
-		String topic = "NetflowInbound";
+		String topic = "JunosIQStream";
 
 		KafkaJsonProducer kafkaProducer = new KafkaJsonProducer();
 
@@ -118,7 +118,7 @@ public class KafkaJsonProducer {
 
 		String tokenizedJsonData;
 
-		for (int i = 1; i <= 100; i++) {
+		for (int i = 1; i <= 1000; i++) {
 			tokenizedJsonData = kafkaProducer.createNewJsonData(cpuData, i);
 			System.out.println(tokenizedJsonData);
 			

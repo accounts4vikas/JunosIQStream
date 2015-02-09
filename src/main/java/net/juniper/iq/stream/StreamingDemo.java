@@ -37,15 +37,15 @@ public class StreamingDemo {
 	public static void main(String[] args) {		
 		SparkConf conf = new SparkConf().setAppName("JunosIQStreamApp");
         
-        if (args.length > 0)
+		if (args.length > 0)
             conf.setMaster(args[0]);
         else
             conf.setMaster("local[4]");
-		
+        
 		JavaStreamingContext ssc = new JavaStreamingContext(conf,
 				Durations.seconds(SPARK_STREAM_BATCH_INTERVAL));
 		ssc.checkpoint("/tmp");
-
+ 
 		Map<String, Integer> topicMap = new HashMap<String, Integer>();
 		topicMap.put(KAFKA_TOPIC, KAFKA_PARALLELIZATION);
 		
@@ -104,9 +104,9 @@ public class StreamingDemo {
 		
 		JavaPairDStream<String,Tuple2<Tuple2<BigInteger,BigInteger>,BigInteger>> kvResultsDS = kvMinMaxJoinedDS.join(kvAvgResultPairDS);
 
-		kvResultsDS.foreachRDD(new RDBMSWriter());
+		//kvResultsDS.foreachRDD(new RDBMSWriter());
 		
-		//kvResultsDS.print();
+		kvResultsDS.print();
 		//kvResultsDS.foreachRDD(FileWriter);
 
 		ssc.start();
