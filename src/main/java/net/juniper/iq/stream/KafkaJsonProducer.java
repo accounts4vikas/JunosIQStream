@@ -90,7 +90,9 @@ public class KafkaJsonProducer {
 
 	private Producer<String, String> getKafkaProducer() {
 		java.util.Properties props = new java.util.Properties();
-		props.put("metadata.broker.list", "10.10.0.182:9092");
+		//props.put("metadata.broker.list", "10.10.0.182:9092");
+		props.put("metadata.broker.list", "localhost:9092");
+		
 		props.put("serializer.class", "kafka.serializer.StringEncoder");
 		// props.put("partitioner.class", "example.producer.SimplePartitioner");
 		// props.put("request.required.acks", "1");

@@ -1,16 +1,22 @@
 package net.juniper.iq.stream;
 
 import java.math.BigInteger;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import net.juniper.iq.stream.functions.CassandraWriter;
 import net.juniper.iq.stream.functions.HeapInfoFlatMapFunction;
 import net.juniper.iq.stream.functions.RDBMSWriter;
 import net.juniper.iq.stream.functions.UtilizationPairFunction;
 import net.juniper.iq.stream.functions.UtilizationReduceFunction;
 import net.juniper.iq.stream.jvision.HeapInfo;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.storage.StorageLevel;
@@ -21,8 +27,16 @@ import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.apache.spark.streaming.Durations;
 
-import scala.Tuple2;
+import com.datastax.spark.connector.cql.CassandraConnector;
+import com.datastax.spark.connector.japi.CassandraRow;
+import com.datastax.driver.core.ResultSet;
+import com.datastax.driver.core.Row;
+import com.datastax.driver.core.Session;
 
+import scala.Tuple2;
+import scala.Tuple5;
+import static com.datastax.spark.connector.japi.CassandraJavaUtil.*;
+import static com.datastax.spark.connector.japi.StreamingContextJavaFunctions.*;
 
 public class StreamingDemo {
 
@@ -33,6 +47,8 @@ public class StreamingDemo {
 			.getInt("stream.kafka_parallelization");
 	private static final int SPARK_STREAM_BATCH_INTERVAL = Properties
 			.getInt("stream.sparkstream.batch_interval");
+	private static final String CASSANDRA_URL = Properties
+			.getString("stream.cassandra.url");
 	
 	public static void main(String[] args) {		
 		SparkConf conf = new SparkConf().setAppName("JunosIQStreamApp");
@@ -41,11 +57,13 @@ public class StreamingDemo {
             conf.setMaster(args[0]);
         else
             conf.setMaster("local[4]");
+		
+		conf.set("spark.cassandra.connection.host", CASSANDRA_URL);
         
 		JavaStreamingContext ssc = new JavaStreamingContext(conf,
 				Durations.seconds(SPARK_STREAM_BATCH_INTERVAL));
 		ssc.checkpoint("/tmp");
- 
+		
 		Map<String, Integer> topicMap = new HashMap<String, Integer>();
 		topicMap.put(KAFKA_TOPIC, KAFKA_PARALLELIZATION);
 		
@@ -104,14 +122,30 @@ public class StreamingDemo {
 		
 		JavaPairDStream<String,Tuple2<Tuple2<BigInteger,BigInteger>,BigInteger>> kvResultsDS = kvMinMaxJoinedDS.join(kvAvgResultPairDS);
 
-		//kvResultsDS.foreachRDD(new RDBMSWriter());
+		JavaDStream<MetricsBeanWithMap> kvResultsMappedDS = kvResultsDS
+				.map(new Function<Tuple2<String, Tuple2<Tuple2<BigInteger, BigInteger>, BigInteger>>, MetricsBeanWithMap>() {
+					public MetricsBeanWithMap call(
+							Tuple2<String, Tuple2<Tuple2<BigInteger, BigInteger>, BigInteger>> input) {
+						MetricsBeanWithMap metricsBean = new MetricsBeanWithMap();
+						metricsBean.setKey(input._1);
+						metricsBean.setTime(new java.util.Date(System.currentTimeMillis()));
+						Map<String, BigInteger> aggValues = new HashMap<String, BigInteger>();
+						aggValues.put("min", input._2._1._1);
+						aggValues.put("max", input._2._1._2);
+						aggValues.put("avg", input._2._2);
+						metricsBean.setAggValues(aggValues);
+						return metricsBean;
+					}
+				});			
 		
-		kvResultsDS.print();
+		javaFunctions(kvResultsMappedDS).writerBuilder("junosiqstreamdb", "metrics_ts_withmap_data", mapToRow(MetricsBeanWithMap.class)).saveToCassandra();
+
+		//kvResultsMappedDS.print();
+		//kvResultsDS.foreachRDD(new RDBMSWriter());
 		//kvResultsDS.foreachRDD(FileWriter);
 
 		ssc.start();
-		
-		ssc.awaitTermination();		
+		ssc.awaitTermination();	
 	}
-
+	
 }
