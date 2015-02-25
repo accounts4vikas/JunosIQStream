@@ -4,17 +4,20 @@ import java.io.Serializable;
 
 public class MetricsBean implements Serializable {
 	String key;
-	String aggType;
-	Long timestamp;
-	Long value;
+	long time;
+	long minValue;
+	long maxValue;
+	long avgValue;
 	
 	public MetricsBean() { }
+	
+	public MetricsBean(String key, long time, long min, long max, long avg) {
 
-	public MetricsBean(String key, String aggType, Long timestamp, Long value) {
 		this.key = key;
-		this.aggType = aggType;
-		this.timestamp = timestamp;
-		this.value = value;
+		this.time = time;
+		this.minValue = min;
+		this.maxValue = max;
+		this.avgValue = avg;
 	}
 
 	public String getKey() {
@@ -25,34 +28,45 @@ public class MetricsBean implements Serializable {
 		this.key = key;
 	}
 
-	public String getAggType() {
-		return aggType;
+	public long getTime() {
+		return time;
 	}
 
-	public void setAggType(String aggType) {
-		this.aggType = aggType;
+	public void setTime(long time) {
+		this.time = time;
 	}
 
-	public Long getTimestamp() {
-		return timestamp;
+	public long getMinValue() {
+		return minValue;
 	}
 
-	public void setTimestamp(Long timestamp) {
-		this.timestamp = timestamp;
+	public void setMinValue(long minValue) {
+		this.minValue = minValue;
 	}
 
-	public Long getValue() {
-		return value;
+	public long getMaxValue() {
+		return maxValue;
 	}
 
-	public void setValue(Long value) {
-		this.value = value;
+	public void setMaxValue(long maxValue) {
+		this.maxValue = maxValue;
+	}
+
+	public long getAvgValue() {
+		return avgValue;
+	}
+
+	public void setAvgValue(long avgValue) {
+		this.avgValue = avgValue;
 	}
 
 	@Override
 	public String toString() {
-		return "MetricsBean [key=" + key + ", aggType=" + aggType
-				+ ", timestamp=" + timestamp + ", value=" + value + "]";
+		return "MetricsBean [key=" + key + ", time=" + time + ", minValue="
+				+ minValue + ", maxValue=" + maxValue + ", avgValue="
+				+ avgValue + "]";
 	}
+
+
 	
 }

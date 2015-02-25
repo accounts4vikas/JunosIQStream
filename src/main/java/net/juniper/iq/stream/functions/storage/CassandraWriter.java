@@ -1,4 +1,4 @@
-package net.juniper.iq.stream.functions;
+package net.juniper.iq.stream.functions.storage;
 
 import java.math.BigInteger;
 import java.sql.Timestamp;

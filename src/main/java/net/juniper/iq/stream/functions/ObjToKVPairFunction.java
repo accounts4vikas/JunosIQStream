@@ -8,7 +8,7 @@ import org.apache.spark.api.java.function.PairFunction;
 
 import scala.Tuple2;
 
-public class UtilizationPairFunction implements
+public class ObjToKVPairFunction implements
 		PairFunction<HeapInfo, String, BigInteger> {
 	private static final long serialVersionUID = 42l;
 

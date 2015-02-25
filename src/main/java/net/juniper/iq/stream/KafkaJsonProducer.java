@@ -120,12 +120,11 @@ public class KafkaJsonProducer {
 
 		String tokenizedJsonData;
 
-		for (int i = 1; i <= 1000; i++) {
+		for (int i = 1; i <= 10000; i++) {
 			tokenizedJsonData = kafkaProducer.createNewJsonData(cpuData, i);
 			System.out.println(tokenizedJsonData);
 			
 			kafkaProducer.sendJsonToKafka(producer, topic, tokenizedJsonData);
-
 
 			if(i % 10 == 0) {
 				Thread.sleep(500);

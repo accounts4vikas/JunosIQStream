@@ -1,151 +1,206 @@
 package net.juniper.iq.stream;
 
 import java.math.BigInteger;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-import net.juniper.iq.stream.functions.CassandraWriter;
-import net.juniper.iq.stream.functions.HeapInfoFlatMapFunction;
-import net.juniper.iq.stream.functions.RDBMSWriter;
-import net.juniper.iq.stream.functions.UtilizationPairFunction;
-import net.juniper.iq.stream.functions.UtilizationReduceFunction;
+import net.juniper.iq.stream.functions.KafkaMsgToJsonMapFunction;
+import net.juniper.iq.stream.functions.ObjToKVPairFunction;
+import net.juniper.iq.stream.functions.PairAvgValuesMapFunction;
+import net.juniper.iq.stream.functions.PairCountReduceFunction;
+import net.juniper.iq.stream.functions.PairCountValueMapFunction;
+import net.juniper.iq.stream.functions.PairMaxReduceFunction;
+import net.juniper.iq.stream.functions.PairMinReduceFunction;
+import net.juniper.iq.stream.functions.ToJsonObjFlatMapFunction;
+import net.juniper.iq.stream.functions.TuplesToObjMapFunction;
 import net.juniper.iq.stream.jvision.HeapInfo;
 
-import org.apache.commons.lang.StringUtils;
 import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.api.java.function.Function;
-import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.storage.StorageLevel;
-import org.apache.spark.streaming.api.java.JavaPairReceiverInputDStream;
-import org.apache.spark.streaming.api.java.JavaStreamingContext;
+import org.apache.spark.streaming.Duration;
+import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
+import org.apache.spark.streaming.api.java.JavaPairReceiverInputDStream;
+import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
-import org.apache.spark.streaming.Durations;
-
-import com.datastax.spark.connector.cql.CassandraConnector;
-import com.datastax.spark.connector.japi.CassandraRow;
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
-import com.datastax.driver.core.Session;
 
 import scala.Tuple2;
-import scala.Tuple5;
 import static com.datastax.spark.connector.japi.CassandraJavaUtil.*;
-import static com.datastax.spark.connector.japi.StreamingContextJavaFunctions.*;
 
 public class StreamingDemo {
 
+	private static final String KAFKA_TOPIC_KEY = "stream.kafka_topic";
+	private static final String KAFKA_PARALLEL_KEY = "stream.kafka_parallelization";
+	private static final String SPARK_ZOOKEEPER_KEY = "stream.zkhosts";
+
+	private static final String SPARK_STREAM_BATCH_KEY = "stream.batch_interval";
+
+	private static final String SPARK_CASS_URL_KEY = "stream.cassandra.url";
+	private static final String SPARK_CASS_CONN_KEY = "spark.cassandra.connection.host";
+
+	private static final String KAFKA_CONSUMER_GROUP_KEY = "stream.kafka_consumer_group_id";	
+	private static final String SPARK_CP_DIR_KEY = "stream.checkpoint.dir";	
+	private static final String CASS_KEYSPACE_KEY = "stream.cassandra.keyspace";	
 	
-	private static final String KAFKA_TOPIC = Properties
-			.getString("stream.kafka_topic");
-	private static final int KAFKA_PARALLELIZATION = Properties
-			.getInt("stream.kafka_parallelization");
-	private static final int SPARK_STREAM_BATCH_INTERVAL = Properties
-			.getInt("stream.sparkstream.batch_interval");
-	private static final String CASSANDRA_URL = Properties
-			.getString("stream.cassandra.url");
+	private static final String SPARK_APP_NAME_KEY = "stream.appname";	
+	private static final String SPARK_SERVER_KEY = "stream.spark.server";
 	
-	public static void main(String[] args) {		
-		SparkConf conf = new SparkConf().setAppName("JunosIQStreamApp");
-        
-		if (args.length > 0)
-            conf.setMaster(args[0]);
-        else
-            conf.setMaster("local[4]");
-		
-		conf.set("spark.cassandra.connection.host", CASSANDRA_URL);
-        
+	private static final String CASS_SEC_CF_KEY = "stream.cassandra.table";
+
+	private static final String CASS_CF_INTV1_KEY = "stream.cassandra.table.interval1";
+	private static final String CASS_CF_INTV2_KEY = "stream.cassandra.table.interval2";
+	private static final String CASS_CF_INTV3_KEY = "stream.cassandra.table.interval3";
+	
+	private static final String SPARK_WINDOW_SIZE1_KEY = "stream.window.size.interval1";
+	private static final String SPARK_WINDOW_SIZE2_KEY = "stream.window.size.interval2";
+	private static final String SPARK_WINDOW_SIZE3_KEY = "stream.window.size.interval3";
+
+    private transient SparkConf conf;
+
+    private StreamingDemo(SparkConf conf) {
+        this.conf = conf;
+    }
+	
+    private void run() {
 		JavaStreamingContext ssc = new JavaStreamingContext(conf,
-				Durations.seconds(SPARK_STREAM_BATCH_INTERVAL));
-		ssc.checkpoint("/tmp");
+				Durations.seconds(Properties
+						.getInt(SPARK_STREAM_BATCH_KEY)));
 		
+		ssc.checkpoint(Properties
+				.getString(SPARK_CP_DIR_KEY));
+		
+		//compute(ssc);
+        
+		computeWindows(ssc);
+
+		ssc.awaitTermination();
+    } 
+    
+    private void computeWindows(JavaStreamingContext ssc) {
 		Map<String, Integer> topicMap = new HashMap<String, Integer>();
-		topicMap.put(KAFKA_TOPIC, KAFKA_PARALLELIZATION);
+		topicMap.put(Properties
+				.getString(KAFKA_TOPIC_KEY), Properties
+				.getInt(KAFKA_PARALLEL_KEY));
 		
 		JavaPairReceiverInputDStream<String, String> kafkaMsgs = KafkaUtils
-				.createStream(ssc, Properties.getString("stream.zkhosts"),
-						"test-consumer-group", topicMap, StorageLevel.MEMORY_AND_DISK());
+				.createStream(ssc, Properties.getString(SPARK_ZOOKEEPER_KEY),
+						Properties.getString(KAFKA_CONSUMER_GROUP_KEY),
+						topicMap, StorageLevel.MEMORY_AND_DISK());
 
-		JavaDStream<String> jsonDS = kafkaMsgs
-				.map(new Function<Tuple2<String, String>, String>() {
-					public String call(Tuple2<String, String> message) {
-						return message._2();
-					}
-				});
-		
-		JavaDStream<HeapInfo> heapInfoFlatMapDS = jsonDS.flatMap(new HeapInfoFlatMapFunction());
-		JavaPairDStream<String,BigInteger> kvMappedDS = heapInfoFlatMapDS.mapToPair(new UtilizationPairFunction()).cache();
-		
+		JavaDStream<String> jsonDS = kafkaMsgs.map(new KafkaMsgToJsonMapFunction());
 
-		JavaPairDStream<String,Tuple2<BigInteger,BigInteger>> kvAvgMappedDS = kvMappedDS.mapValues(new Function<BigInteger,Tuple2<BigInteger,BigInteger>>() {
-			public Tuple2<BigInteger,BigInteger> call(BigInteger input) {
-				BigInteger bigInt = BigInteger.valueOf(1);
-				return new Tuple2(input, bigInt);
-			}			
-		});
+		JavaDStream<HeapInfo> heapInfoFlatMapDS = jsonDS.flatMap(new ToJsonObjFlatMapFunction()).cache();
 		
-		JavaPairDStream<String,Tuple2<BigInteger,BigInteger>> kvAvgReducedByKeyDS = kvAvgMappedDS.reduceByKey(new UtilizationReduceFunction());
+		JavaDStream<HeapInfo> interval1WindowDS = heapInfoFlatMapDS.window(
+				new Duration(Properties.getInt(SPARK_WINDOW_SIZE1_KEY)),
+				new Duration(Properties.getInt(SPARK_WINDOW_SIZE1_KEY)));
+		JavaDStream<HeapInfo> interval2WindowDS = heapInfoFlatMapDS.window(
+				new Duration(Properties.getInt(SPARK_WINDOW_SIZE2_KEY)),
+				new Duration(Properties.getInt(SPARK_WINDOW_SIZE2_KEY)));
+		JavaDStream<HeapInfo> interval3WindowDS = heapInfoFlatMapDS.window(
+				new Duration(Properties.getInt(SPARK_WINDOW_SIZE3_KEY)),
+				new Duration(Properties.getInt(SPARK_WINDOW_SIZE3_KEY)));
 		
-		JavaPairDStream<String,BigInteger> kvAvgResultPairDS = kvAvgReducedByKeyDS.mapValues(new Function<Tuple2<BigInteger,BigInteger>,BigInteger>() {
-			public BigInteger call(Tuple2<BigInteger,BigInteger> input) {
-				return input._1.divide(input._2);
-			}			
-		});
+		processWindow(interval1WindowDS,Properties.getString(CASS_CF_INTV1_KEY));
+		processWindow(interval2WindowDS,Properties.getString(CASS_CF_INTV2_KEY));
+		processWindow(interval3WindowDS,Properties.getString(CASS_CF_INTV3_KEY));
+		
+		//oneSecWindowDS.print();
+		
+		ssc.start();
+    }   
+    
+    private void processWindow(JavaDStream<HeapInfo> windowDS, String tableName) {
+		JavaPairDStream<String,BigInteger> kvMappedDS = windowDS.mapToPair(new ObjToKVPairFunction()).cache();
+		
+		JavaPairDStream<String,Tuple2<BigInteger,BigInteger>> kvCountValueMappedDS = kvMappedDS.mapValues(new PairCountValueMapFunction());
+		
+		JavaPairDStream<String,Tuple2<BigInteger,BigInteger>> kvCountReducedByKeyDS = kvCountValueMappedDS.reduceByKey(new PairCountReduceFunction());
+		
+		JavaPairDStream<String,BigInteger> kvAvgResultPairDS = kvCountReducedByKeyDS.mapValues(new PairAvgValuesMapFunction());
 
-
-		JavaPairDStream<String,BigInteger> kvMinReducedDS = kvMappedDS.reduceByKey(new Function2<BigInteger,BigInteger, BigInteger>() {
-			public BigInteger call(BigInteger input1, BigInteger input2) {
-				if(input1.intValue() < input2.intValue()) {
-					return input1;
-				} else {
-					return input2;
-				}
-			}			
-		});
+		JavaPairDStream<String,BigInteger> kvMinReducedDS = kvMappedDS.reduceByKey(new PairMinReduceFunction());
 		
-		JavaPairDStream<String,BigInteger> kvMaxReducedDS = kvMappedDS.reduceByKey(new Function2<BigInteger,BigInteger, BigInteger>() {
-			public BigInteger call(BigInteger input1, BigInteger input2) {
-				if(input1.intValue() < input2.intValue()) {
-					return input2;
-				} else {
-					return input1;
-				}
-			}			
-		});
+		JavaPairDStream<String,BigInteger> kvMaxReducedDS = kvMappedDS.reduceByKey(new PairMaxReduceFunction());
 		
 		JavaPairDStream<String,Tuple2<BigInteger,BigInteger>> kvMinMaxJoinedDS = kvMinReducedDS.join(kvMaxReducedDS);
 		
 		JavaPairDStream<String,Tuple2<Tuple2<BigInteger,BigInteger>,BigInteger>> kvResultsDS = kvMinMaxJoinedDS.join(kvAvgResultPairDS);
 
-		JavaDStream<MetricsBeanWithMap> kvResultsMappedDS = kvResultsDS
-				.map(new Function<Tuple2<String, Tuple2<Tuple2<BigInteger, BigInteger>, BigInteger>>, MetricsBeanWithMap>() {
-					public MetricsBeanWithMap call(
-							Tuple2<String, Tuple2<Tuple2<BigInteger, BigInteger>, BigInteger>> input) {
-						MetricsBeanWithMap metricsBean = new MetricsBeanWithMap();
-						metricsBean.setKey(input._1);
-						metricsBean.setTime(new java.util.Date(System.currentTimeMillis()));
-						Map<String, BigInteger> aggValues = new HashMap<String, BigInteger>();
-						aggValues.put("min", input._2._1._1);
-						aggValues.put("max", input._2._1._2);
-						aggValues.put("avg", input._2._2);
-						metricsBean.setAggValues(aggValues);
-						return metricsBean;
-					}
-				});			
+		JavaDStream<MetricsBeanWithMap> kvResultsMappedDS = kvResultsDS.map(new TuplesToObjMapFunction());			
 		
-		javaFunctions(kvResultsMappedDS).writerBuilder("junosiqstreamdb", "metrics_ts_withmap_data", mapToRow(MetricsBeanWithMap.class)).saveToCassandra();
-
 		//kvResultsMappedDS.print();
+		
+		javaFunctions(kvResultsMappedDS).writerBuilder(
+				Properties.getString(CASS_KEYSPACE_KEY), tableName,
+				mapToRow(MetricsBeanWithMap.class)).saveToCassandra();
+    }     
+
+    
+    private void compute(JavaStreamingContext ssc) {
+		Map<String, Integer> topicMap = new HashMap<String, Integer>();
+		topicMap.put(Properties
+				.getString(KAFKA_TOPIC_KEY), Properties
+				.getInt(KAFKA_PARALLEL_KEY));
+		
+		JavaPairReceiverInputDStream<String, String> kafkaMsgs = KafkaUtils
+				.createStream(ssc, Properties.getString(SPARK_ZOOKEEPER_KEY),
+						Properties.getString(KAFKA_CONSUMER_GROUP_KEY),
+						topicMap, StorageLevel.MEMORY_AND_DISK());
+
+		JavaDStream<String> jsonDS = kafkaMsgs.map(new KafkaMsgToJsonMapFunction());
+
+		JavaDStream<HeapInfo> heapInfoFlatMapDS = jsonDS.flatMap(new ToJsonObjFlatMapFunction());
+		
+		JavaPairDStream<String,BigInteger> kvMappedDS = heapInfoFlatMapDS.mapToPair(new ObjToKVPairFunction()).cache();
+		
+		JavaPairDStream<String,Tuple2<BigInteger,BigInteger>> kvCountValueMappedDS = kvMappedDS.mapValues(new PairCountValueMapFunction());
+		
+		JavaPairDStream<String,Tuple2<BigInteger,BigInteger>> kvCountReducedByKeyDS = kvCountValueMappedDS.reduceByKey(new PairCountReduceFunction());
+		
+		JavaPairDStream<String,BigInteger> kvAvgResultPairDS = kvCountReducedByKeyDS.mapValues(new PairAvgValuesMapFunction());
+
+		JavaPairDStream<String,BigInteger> kvMinReducedDS = kvMappedDS.reduceByKey(new PairMinReduceFunction());
+		
+		JavaPairDStream<String,BigInteger> kvMaxReducedDS = kvMappedDS.reduceByKey(new PairMaxReduceFunction());
+		
+		JavaPairDStream<String,Tuple2<BigInteger,BigInteger>> kvMinMaxJoinedDS = kvMinReducedDS.join(kvMaxReducedDS);
+		
+		JavaPairDStream<String,Tuple2<Tuple2<BigInteger,BigInteger>,BigInteger>> kvResultsDS = kvMinMaxJoinedDS.join(kvAvgResultPairDS);
+
+		JavaDStream<MetricsBeanWithMap> kvResultsMappedDS = kvResultsDS.map(new TuplesToObjMapFunction());			
+
+		
+		javaFunctions(kvResultsMappedDS).writerBuilder(
+				Properties.getString(CASS_KEYSPACE_KEY),
+				Properties.getString(CASS_SEC_CF_KEY),
+				mapToRow(MetricsBeanWithMap.class)).saveToCassandra();
+
+		kvResultsMappedDS.print();
 		//kvResultsDS.foreachRDD(new RDBMSWriter());
-		//kvResultsDS.foreachRDD(FileWriter);
 
 		ssc.start();
-		ssc.awaitTermination();	
+    }      
+    
+	public static void main(String[] args) {	
+		SparkConf conf = new SparkConf().setAppName(Properties.getString(SPARK_APP_NAME_KEY));
+		conf.set(SPARK_CASS_CONN_KEY, Properties
+				.getString(SPARK_CASS_URL_KEY));
+		
+		String master;
+		if (args.length > 0) {
+			master= args[0];
+		} else {
+			master = Properties.getString(SPARK_SERVER_KEY);
+		}
+		conf.setMaster(master);
+		System.out.println("***********************************************************");
+		System.out.println("Using Spark Master = " + master);
+		System.out.println("***********************************************************");
+		
+		StreamingDemo app = new StreamingDemo(conf);
+        app.run();		
 	}
 	
 }

@@ -11,7 +11,7 @@ import org.apache.spark.api.java.function.FlatMapFunction;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-public class HeapInfoFlatMapFunction implements FlatMapFunction<String, HeapInfo> {
+public class ToJsonObjFlatMapFunction implements FlatMapFunction<String, HeapInfo> {
     private static final long serialVersionUID = 42l;
     private final ObjectMapper mapper = new ObjectMapper();
     

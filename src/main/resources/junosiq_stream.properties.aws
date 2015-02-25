@@ -1,9 +1,0 @@
-stream.zkhosts: zookeeper.dev.badpkt.com:2181/vsangwan
-stream.zktimeout.ms: 10000
-stream.kafka_topic: JunosIQStream
-stream.kafka_parallelization: 3
-stream.sparkstream.batch_interval: 1
-stream.output_file: /home/ubuntu/JunosIQStream/out/results
-stream.mysql.url: jdbc:mysql://localhost:3306/junosiq
-stream.mysql.userid: root
-stream.cassandra.url: 10.10.0.4

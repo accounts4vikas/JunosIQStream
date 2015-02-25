@@ -7,7 +7,7 @@ import org.apache.spark.api.java.function.Function2;
 
 import scala.Tuple2;
 
-public class UtilizationReduceFunction implements
+public class PairCountReduceFunction implements
 		Function2<Tuple2<BigInteger,BigInteger>, Tuple2<BigInteger,BigInteger>, Tuple2<BigInteger,BigInteger>> {
 	private static final long serialVersionUID = 42l;
 
