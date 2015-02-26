@@ -16,12 +16,12 @@ public class Properties
     {
         try
         {
-        	String path = "/junosiq_stream_local.properties";
+        	//String path = "/junosiq_stream_local.properties";
         	//String path = "/junosiq_stream_local_1sec.properties";
         	//String path = "/junosiq_stream_local_30sec.properties";
         	//String path = "/junosiq_stream_local_1min.properties";
 
-        	//String path = "/junosiq_stream_aws.properties";
+        	String path = "/junosiq_stream_aws.properties";
         	//String path = "/junosiq_stream_aws_1sec.properties";
         	//String path = "/junosiq_stream_aws_30sec.properties";
         	//String path = "/junosiq_stream_aws_1min.properties";
